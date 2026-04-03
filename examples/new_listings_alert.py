@@ -20,7 +20,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-import httpx
+from curl_cffi import requests as cffi_requests
 
 from pypararius import Pararius
 
@@ -51,7 +51,7 @@ def notify_webhook(webhook_url: str, listings: list) -> None:
         f"**{l['title']}** ({l['city']}) - €{l['price']}/month\n{l['url']}"
         for l in listings
     ])
-    httpx.post(webhook_url, json={"content": content}, timeout=10)
+    cffi_requests.post(webhook_url, json={"content": content}, timeout=10)
 
 
 def main():

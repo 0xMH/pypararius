@@ -3,20 +3,14 @@
 import re
 from urllib.parse import urljoin
 
-import httpx
+from curl_cffi import requests as cffi_requests
 
 from pypararius.listing import Listing
-from pypararius.parser import parse_listing_details, parse_search_response
+from pypararius.parser import parse_listing_details, parse_search_jsonld
 
 
 # Base URL
 BASE_URL = "https://www.pararius.com"
-
-# Headers
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-    "Accept": "application/json, text/html",
-}
 
 
 class Pararius:
@@ -42,24 +36,23 @@ class Pararius:
             timeout: Request timeout in seconds
         """
         self.timeout = timeout
-        self._client: httpx.Client | None = None
+        self._session: cffi_requests.Session | None = None
 
     @property
-    def client(self) -> httpx.Client:
-        """Lazily create HTTP client."""
-        if self._client is None:
-            self._client = httpx.Client(
+    def session(self) -> cffi_requests.Session:
+        """Lazily create HTTP session."""
+        if self._session is None:
+            self._session = cffi_requests.Session(
                 timeout=self.timeout,
-                headers=HEADERS,
-                follow_redirects=True,
+                impersonate="chrome",
             )
-        return self._client
+        return self._session
 
     def close(self) -> None:
-        """Close the HTTP client."""
-        if self._client:
-            self._client.close()
-            self._client = None
+        """Close the HTTP session."""
+        if self._session:
+            self._session.close()
+            self._session = None
 
     def __enter__(self) -> "Pararius":
         return self
@@ -101,12 +94,17 @@ class Pararius:
                 f"Cannot fetch listing by ID alone. Please provide a URL or path like 'amsterdam/{listing_id}/street'"
             )
 
-        response = self.client.get(url)
+        response = self.session.get(url)
 
         if response.status_code == 404:
             raise LookupError(f"Listing {listing_id} not found")
 
-        response.raise_for_status()
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Request failed (status {response.status_code}). "
+                f"Pararius may be blocking requests."
+            )
+
         return parse_listing_details(response.text, str(response.url))
 
     def search_listing(
@@ -160,16 +158,15 @@ class Pararius:
             page=page + 1,  # Pararius uses 1-indexed pages
         )
 
-        # Add XHR header to get JSON response
-        headers = {"X-Requested-With": "XMLHttpRequest"}
-
-        response = self.client.get(url, headers=headers)
+        response = self.session.get(url)
 
         if response.status_code != 200:
-            raise RuntimeError(f"Search failed (status {response.status_code})")
+            raise RuntimeError(
+                f"Search failed (status {response.status_code}). "
+                f"Pararius may be blocking requests."
+            )
 
-        data = response.json()
-        return parse_search_response(data, city)
+        return parse_search_jsonld(response.text, city)
 
     # -------------------------------------------------------------------------
     # URL building
