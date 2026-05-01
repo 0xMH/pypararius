@@ -7,6 +7,25 @@ from typing import Optional
 from .listing import Listing
 
 
+def parse_search_response(response_text: str, city: str) -> list[Listing]:
+    """Parse search results from either Pararius AJAX JSON or full HTML."""
+    html = response_text
+
+    try:
+        data = json.loads(response_text)
+    except json.JSONDecodeError:
+        data = None
+
+    if isinstance(data, dict):
+        components = data.get("components", {})
+        if isinstance(components, dict):
+            results = components.get("results")
+            if isinstance(results, str):
+                html = results
+
+    return parse_search_jsonld(html, city)
+
+
 def parse_search_jsonld(html: str, city: str) -> list[Listing]:
     """Parse search results from JSON-LD structured data embedded in the page."""
     jsonld = _extract_jsonld_graph(html)
@@ -219,7 +238,7 @@ def parse_listing_details(html: str, url: str) -> Listing:
 def _extract_jsonld_graph(html: str) -> list[dict]:
     """Extract @graph array from JSON-LD (used on search pages)."""
     matches = re.findall(
-        r'<script type="application/ld\+json">(.*?)</script>',
+        r"<script[^>]*type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script>",
         html,
         re.DOTALL,
     )
@@ -236,7 +255,7 @@ def _extract_jsonld_graph(html: str) -> list[dict]:
 def _extract_jsonld_detail(html: str) -> dict:
     """Extract JSON-LD structured data from detail page HTML."""
     matches = re.findall(
-        r'<script type="application/ld\+json">(.*?)</script>',
+        r"<script[^>]*type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script>",
         html,
         re.DOTALL,
     )

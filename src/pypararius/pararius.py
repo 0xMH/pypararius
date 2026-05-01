@@ -6,11 +6,15 @@ from urllib.parse import urljoin
 from curl_cffi import requests as cffi_requests
 
 from pypararius.listing import Listing
-from pypararius.parser import parse_listing_details, parse_search_jsonld
+from pypararius.parser import parse_listing_details, parse_search_response
 
 
 # Base URL
 BASE_URL = "https://www.pararius.com"
+AJAX_HEADERS = {
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "X-Requested-With": "XMLHttpRequest",
+}
 
 
 class Pararius:
@@ -158,7 +162,7 @@ class Pararius:
             page=page + 1,  # Pararius uses 1-indexed pages
         )
 
-        response = self.session.get(url)
+        response = self.session.get(url, headers=AJAX_HEADERS)
 
         if response.status_code != 200:
             raise RuntimeError(
@@ -166,7 +170,7 @@ class Pararius:
                 f"Pararius may be blocking requests."
             )
 
-        return parse_search_jsonld(response.text, city)
+        return parse_search_response(response.text, city)
 
     # -------------------------------------------------------------------------
     # URL building
