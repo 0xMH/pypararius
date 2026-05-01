@@ -16,5 +16,5 @@ Example usage:
 from pypararius.pararius import Pararius, ParariusAPI
 from pypararius.listing import Listing
 
-__version__ = "2.1.1"
+__version__ = "2.1.2"
 __all__ = ["Pararius", "ParariusAPI", "Listing"]
